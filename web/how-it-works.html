@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Mothership Works</title>
+<meta name="description" content="Mothership — remote-control your machines from your pocket. No open ports, no VPN. Here's exactly how it works.">
+<link rel="icon" href="/icons/icon-192.png">
+<style>
+  :root {
+    --bg: #0a0e14; --bg2: #0d1220; --surface: #131a26; --surface2: #1a2333;
+    --line: rgba(255,255,255,.07); --text: #e8edf5; --muted: #8b96a8;
+    --primary: #5b9dff; --green: #3ddc84; --amber: #ffb454;
+    --mono: ui-monospace,'Cascadia Code',Consolas,Menlo,monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: radial-gradient(1200px 800px at 70% -10%, #101a30 0%, var(--bg) 55%) fixed, var(--bg);
+    color: var(--text); font: 16px/1.65 -apple-system,'Segoe UI',system-ui,sans-serif;
+  }
+  a { color: var(--primary); text-decoration: none; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px 90px; }
+  header.hero { text-align: center; padding: 84px 0 30px; }
+  .hero .saucer { font-size: 64px; display: block; margin-bottom: 8px; }
+  h1 { font-size: clamp(34px, 6vw, 52px); letter-spacing: .04em; }
+  .hero .tag { color: var(--muted); font-size: 19px; margin-top: 8px; }
+  .hero .cta { display: inline-block; margin-top: 22px; background: var(--primary); color: #06101f; font-weight: 700; padding: 11px 22px; border-radius: 4px; }
+  section { margin-top: 74px; }
+  h2 { font-size: 26px; margin-bottom: 6px; }
+  h2 .n { color: var(--primary); font-family: var(--mono); font-size: 18px; margin-right: 10px; }
+  .lead { color: var(--muted); margin-bottom: 20px; }
+  p + p { margin-top: 12px; }
+  figure { margin: 26px 0; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: 4px; display: block; }
+  figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; text-align: center; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px; }
+  .card h3 { font-size: 15px; margin-bottom: 4px; }
+  .card p { font-size: 13.5px; color: var(--muted); }
+  .callout { background: var(--surface); border-left: 3px solid var(--primary); border-radius: 4px; padding: 14px 18px; margin: 20px 0; font-size: 14.5px; }
+  .callout.warn { border-left-color: var(--amber); }
+  code, .mono { font-family: var(--mono); font-size: .92em; background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+  th { text-align: left; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; padding: 8px; }
+  td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  footer { margin-top: 90px; text-align: center; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 26px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px rgba(61,220,132,.7); margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="saucer">🛸</span>
+    <h1>MOTHERSHIP</h1>
+    <div class="tag">Every machine you own, in your pocket. No open ports. No VPN. No compromises.</div>
+    <a class="cta" href="/">Open the app</a>
+  </header>
+
+  <section>
+    <h2><span class="n">01</span>What it is</h2>
+    <p class="lead">A command deck for always-on machines.</p>
+    <p>Mothership is a mobile-first web app that remote-controls the computers in your fleet — your build server, your laptop, and every future machine. It runs Claude Code sessions as chat threads, opens a real terminal, streams live system stats, browses files, manages processes, and can lock, restart, or shut a machine down — all from a phone on the couch or a browser across the world.</p>
+    <p>It is not a remote desktop. Parsec streams pixels when you need to see the actual screen. Mothership is a purpose-built <em>control surface</em> for the thing that actually happens twenty times a day: kicking off, steering, and reviewing Claude Code work.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">02</span>No open ports — the relay</h2>
+    <p class="lead">The whole trick, in one picture.</p>
+    <figure><img src="/img/hiw-relay.png" alt="Infographic: phone and bridge both dial out to the Cloudflare hub; no open ports on the machine"></figure>
+    <p>Traditional remote access pokes a hole in your machine: a port forward, a VPN, a tunnel daemon. Mothership never opens a single inbound port. Instead, a small Node agent — <strong>the bridge</strong> — runs on each machine and dials <em>out</em> to the hub, a Cloudflare Worker, over a WebSocket. Your phone connects to the same hub. A per-machine Durable Object sits in the middle and relays messages both ways.</p>
+    <p>The machine is invisible to the internet. There is nothing to scan, nothing to brute-force. If the bridge process dies, a supervised scheduled task respawns it within seconds; when the machine reboots, it comes back on its own.</p>
+    <div class="callout warn"><strong>Honest security note:</strong> the hub currently runs in open mode — the URL is the gate. Token auth is built in and the arming sequence is staged: a token is already generated and pre-loaded into the bridge; once every client carries it (paste it in Settings → Hub token on each device), setting one Worker secret enforces it with zero downtime. Until then, treat the URL like a password. Power actions (restart, shutdown) always double-confirm.</div>
+  </section>
+
+  <section>
+    <h2><span class="n">03</span>Claude sessions as chat</h2>
+    <p class="lead">Type anywhere. Queue like a pro. Hear the recap.</p>
+    <figure><img src="/img/hiw-flow.png" alt="Infographic: type, queue, Claude runs, tap to hear the recap"></figure>
+    <p>Every session is a persistent chat thread bound to a working folder on the machine. Messages run Claude Code headlessly on the machine itself — the same Claude, the same tools, the same repos as sitting at the keyboard. Replies stream back token by token, with every tool call chipped onto the message and the run's cost and duration stamped underneath.</p>
+    <p><strong>Queueing:</strong> keep typing while Claude works. Extra messages stack with a ⏳ and feed the very next run with full context — exactly like queued messages in the Claude Code CLI.</p>
+    <p><strong>Spoken recaps:</strong> after each reply, a second, tiny model pass boils the essay down to one or two spoken sentences. Tap 🔊 and the phone reads you the outcome — never the whole thing. Drafts survive navigation; attachments upload from the phone straight onto the machine.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">04</span>One hub, every machine</h2>
+    <p class="lead">The fleet view from orbit.</p>
+    <figure><img src="/img/hiw-fleet.png" alt="Infographic: one hub connecting your desktop, laptop, and future machines; Pro Desk multi-column view"></figure>
+    <p>Machines self-register the moment their bridge connects, with a green dot driven by a heartbeat. Switch machines in two taps. The <strong>Pro Desk</strong> turns the sessions list into a full-width trading-desk grid — four or five live Claude feeds side by side, each with its own status banner (running pulse, model, billing source, working folder, last reply) and its own composer.</p>
+    <div class="cards">
+      <div class="card"><h3>💬 Sessions</h3><p>Chat-first Claude Code with streaming replies, queueing, recaps, drafts, attachments.</p></div>
+      <div class="card"><h3>⌨️ Terminal</h3><p>A real PTY terminal in the browser — full ConPTY, xterm rendering, quick-keys on mobile.</p></div>
+      <div class="card"><h3>🚀 Fleet</h3><p>Every Cloudflare worker with 7-day requests, errors, and estimated cost chips.</p></div>
+      <div class="card"><h3>🖥️ Machine</h3><p>Live CPU/RAM/disk gauges, process kill, file browser, one-shot PowerShell, power control.</p></div>
+      <div class="card"><h3>🤖 Claude processes</h3><p>Every Claude Code instance on the machine — interactive or headless — listed, measured, and closable in bulk.</p></div>
+      <div class="card"><h3>🔔 Push</h3><p>Payload-free web push when a build finishes or a machine needs you.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">05</span>Browser control — the last gap, closed</h2>
+    <p class="lead">Phone sessions can now drive a real Chrome on the machine.</p>
+    <figure><img src="/img/hiw-browser.png" alt="Infographic: phone through relay to Claude, which drives a Chrome browser window"><figcaption>The browser lane: your prompt rides the relay, Claude drives Chrome on the machine.</figcaption></figure>
+    <p>Desk sessions get browser control from the Claude-in-Chrome extension — which, by Anthropic's design, only pairs with an interactive terminal. Headless Mothership sessions could never use it. So they get their own lane instead: every bridge-spawned session now loads <strong>Playwright MCP</strong> and <strong>Chrome DevTools MCP</strong>, driving the machine's installed Chrome — navigate, click, fill forms, screenshot, read consoles and network traffic — from a prompt typed on your phone.</p>
+    <p>Honest nuance: this is a fresh, automation-owned Chrome, not your logged-in day-to-day profile. For sites that need your logins, the roadmap move is a dedicated persistent profile that stays signed in for the automation lane.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">06</span>Standing orders</h2>
+    <p class="lead">The phone stops being a remote and becomes an operator.</p>
+    <figure><img src="/img/hiw-orders.png" alt="Infographic: a 07:30 clock triggers a Claude run whose recap arrives on a nightstand phone"><figcaption>Schedule it once; wake up to the answer, already computed.</figcaption></figure>
+    <p>A standing order is a prompt with a clock: <em>“07:30, weekdays — run the morning fleet check and summarize in ten lines.”</em> The bridge fires it on the machine even with the app closed; the run flows through the normal pipeline, so the push notification and the spoken recap arrive like any other reply. Set them up in Settings → Standing orders.</p>
+    <p>This shipped in the <strong>2026-07-17 debate pass</strong> — three Fable 5 agents read the whole codebase and argued phone-UX vs reliability vs raw capability; the winners were implemented the same day:</p>
+    <div class="cards">
+      <div class="card"><h3>🔔 Notifications that say things</h3><p>Push now shows the real event and taps deep-link straight into that chat — no more anonymous “activity on your fleet.”</p></div>
+      <div class="card"><h3>🛸 Reverse-beam</h3><p>Any desk session ever run — in History — gets a “Continue here” button and becomes a live phone chat with full context.</p></div>
+      <div class="card"><h3>⚡ Wake-up resync</h3><p>Unlock your phone and the app self-heals instantly — no stale “running” badges, no 15-second red dot.</p></div>
+      <div class="card"><h3>● Unread markers</h3><p>Sessions that replied since you last looked get a blue chip, and the Sessions tab counts them.</p></div>
+      <div class="card"><h3>/ Real skills</h3><p>The slash palette now lists the machine's actual skills — /wrap-it-up, /make-kit, /rir-newsletter — one tap to run.</p></div>
+      <div class="card"><h3>🔁 Reboot survival</h3><p>The bridge installer now registers boot-time start, and its log rotates so an always-on box never fills its disk.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">07</span>Full transparency — what works, what doesn't, why</h2>
+    <p class="lead">A Mothership session vs sitting at the desk. No marketing-wash.</p>
+    <table>
+      <tr><th></th><th>Capability</th><th>The truth</th></tr>
+      <tr><td>✅</td><td><strong>Files, terminal, git, deploys</strong></td><td>Full desk parity — it IS Claude Code, running on the machine, same repos, same wrangler.</td></tr>
+      <tr><td>✅</td><td><strong>Memory + house rules</strong></td><td>Sessions default to the home folder, so the full memory bank and global CLAUDE.md load exactly like a desk session.</td></tr>
+      <tr><td>✅</td><td><strong>Skills</strong></td><td>Every installed skill works headless and is one tap away in the / palette.</td></tr>
+      <tr><td>✅</td><td><strong>API-key MCPs</strong></td><td>Supabase, Cloudflare, Stripe and friends authenticate with stored keys — no interactive step, so headless is fine.</td></tr>
+      <tr><td>✅</td><td><strong>Browser automation</strong></td><td>New: Playwright + Chrome DevTools MCP in every session (see §05).</td></tr>
+      <tr><td>✅</td><td><strong>Standing orders, recaps, queueing, push</strong></td><td>Phone-only superpowers — the desk doesn't have these at all.</td></tr>
+      <tr><td>❌</td><td><strong>Claude-in-Chrome extension</strong></td><td>Pairs only with interactive desk sessions — Anthropic's design, not configurable. The Playwright lane is the replacement.</td></tr>
+      <tr><td>❌</td><td><strong>claude.ai OAuth connectors</strong></td><td>Gmail, Beehiiv, Descript, Gamma, Drive/Calendar ride the claude.ai login; their interactive OAuth handshake can't complete in a headless spawn. Workarounds exist per-service (Beehiiv's raw API key, vault via files) — full parity isn't forceable from our side.</td></tr>
+      <tr><td>❌</td><td><strong>Permission prompts</strong></td><td>Headless runs skip permissions entirely (nobody's there to click). Power tools with no guardrails — an approval-remote on the lock screen is the roadmap answer.</td></tr>
+      <tr><td>❌</td><td><strong>Seeing the screen</strong></td><td>Mothership controls the machine; it doesn't stream pixels. That's deliberately Parsec's job (§09).</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2><span class="n">08</span>Under the hood</h2>
+    <p class="lead">Three small parts, deliberately boring technology.</p>
+    <table>
+      <tr><th>Part</th><th>What it is</th><th>Why it's built that way</th></tr>
+      <tr><td><strong>Hub</strong></td><td>Cloudflare Worker + one Durable Object per machine, KV registry, VAPID push</td><td>Hibernating WebSockets cost nothing while idle; the DO relays browser ↔ bridge with no server to maintain</td></tr>
+      <tr><td><strong>Web app</strong></td><td>Vanilla no-build PWA — hash router, vendored xterm & marked, service worker</td><td>No framework, no bundler: any future Claude session can edit any file directly</td></tr>
+      <tr><td><strong>Bridge</strong></td><td>Node agent per machine: <code>claude -p --output-format stream-json</code>, ConPTY terminal, stats, files, power</td><td>Outbound-only WebSocket; supervised scheduled task survives crashes and reboots</td></tr>
+    </table>
+    <p style="margin-top:16px">Session transcripts, queue state, and Claude's own conversation history all live <em>on the machine</em> — the hub stores nothing but a machine registry and notifications. Lose the hub and you lose nothing but the door.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">09</span>Mothership vs Parsec</h2>
+    <p>They coexist on the same machines. <strong>Parsec</strong> streams the full desktop — pixels, GPU, trading screens, anything you can see. <strong>Mothership</strong> is lighter and sharper: it installs to the home screen, works over any connection, pushes a notification when the build lands, and reads you the recap out loud. Rule of thumb: <em>kick off and steer work from your pocket → Mothership; need to see and touch the real screen → Parsec.</em></p>
+  </section>
+
+  <footer>
+    <div><span class="dot"></span>MOTHERSHIP — a Lenny Made That build</div>
+    <div style="margin-top:6px">Built with Claude Code (Fable 5) · Cloudflare Workers · one day, several conversations</div>
+    <div style="margin-top:6px"><a href="/">Open the app</a></div>
+  </footer>
+
+</div>
+</body>
+</html>

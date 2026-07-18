@@ -1,0 +1,22 @@
+{
+  "name": "mothership-desktop",
+  "version": "1.0.0",
+  "description": "Mothership Access Hub — desktop shell",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.example.mothership",
+    "productName": "Mothership",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "package.json"],
+    "win": { "target": "portable" }
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+bridge/config.json
+bridge/data/
+web/bridge.zip
+desktop/dist/
+.wrangler/
+.dev.vars
+*.log

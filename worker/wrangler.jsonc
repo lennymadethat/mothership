@@ -1,0 +1,32 @@
+{
+  "name": "mothership-hub-dev",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "assets": { "directory": "../web", "binding": "ASSETS" },
+  "workers_dev": true,
+  // 2026-07-15: repo went SINGLE-SURFACE (main only, Lenny's call) — the custom
+  // domain moved to the production env below; the dev worker keeps only workers.dev
+  "routes": [],
+  "durable_objects": {
+    "bindings": [{ "name": "MACHINES", "class_name": "MachineRelay" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MachineRelay"] }],
+  "kv_namespaces": [{ "binding": "HUB_KV", "id": "YOUR_DEV_KV_NAMESPACE_ID" }],
+  "vars": { "ACCOUNT_ID": "YOUR_CLOUDFLARE_ACCOUNT_ID" },
+  "observability": { "enabled": true },
+  "env": {
+    "production": {
+      "name": "mothership-hub",
+      "routes": [{ "pattern": "mothership.your-domain.com", "custom_domain": true }],
+      "workers_dev": true,
+      "assets": { "directory": "../web", "binding": "ASSETS" },
+      "durable_objects": {
+        "bindings": [{ "name": "MACHINES", "class_name": "MachineRelay" }]
+      },
+      "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MachineRelay"] }],
+      "kv_namespaces": [{ "binding": "HUB_KV", "id": "YOUR_PROD_KV_NAMESPACE_ID" }],
+      "vars": { "ACCOUNT_ID": "YOUR_CLOUDFLARE_ACCOUNT_ID" },
+      "observability": { "enabled": true }
+    }
+  }
+}

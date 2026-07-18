@@ -1,0 +1,5 @@
+{
+  "hubUrl": "https://mothership-hub.YOUR_SUBDOMAIN.workers.dev",
+  "machine": "my-desktop",
+  "token": ""
+}

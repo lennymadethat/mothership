@@ -1,0 +1,16 @@
+{
+  "name": "mothership-bridge",
+  "version": "1.4.0",
+  "description": "Mothership bridge agent — dials out to the hub, exposes this machine to the Mothership PWA",
+  "main": "bridge.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1"
+  }
+}
