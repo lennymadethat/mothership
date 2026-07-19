@@ -10,12 +10,22 @@ The bridge on each machine dials **out** to the hub; your browser connects to th
 
 ## What you get
 - **Claude Code as chat** — streaming replies, markdown, tool-call chips, session resume (`claude -p --resume` under the hood). Multiple named sessions per machine, switch instantly, transcripts persist.
+- **Long-session memory** — when a context window fills up, the chat does **not** die. The bridge rolls into a fresh agent session primed with a **Persistent State** ledger (plans, todos, decisions, paths, pointers, dead ends), a short orientation brief, the **verbatim** recent transcript, and a **Recall** CLI so any older turn can be pulled back word-for-word from the on-disk archive. One continuous thread on your phone; many stitched parts under the hood. Design notes: [`docs/long-session-memory.md`](docs/long-session-memory.md).
 - **Real terminal** — full PTY (ConPTY on Windows) in xterm.js with mobile quick-keys, pipe-mode fallback.
 - **Fleet view** — every machine (online dots, host info) plus every Cloudflare Worker with its cron schedules.
 - **Machine control** — live CPU/RAM/disk gauges, process kill, lock/restart/shutdown (double-confirmed), file browser, one-shot shell.
 - **History** — every native Claude Code session ever run on the machine, searchable, with a transcript viewer.
 - **Push notifications** — your phone buzzes when a run finishes or a machine acts up (VAPID web push, payload-free by design).
 - **PWA** — install to home screen, offline shell, dark, fast.
+
+### Memory layers (how this pairs with persistent-memory)
+
+| Layer | Product | Job |
+|---|---|---|
+| Conversation continuity | **Mothership** (this repo) | State Block + verbatim tail + `recall.mjs` across rollovers |
+| Long-term knowledge | **[persistent-memory](https://github.com/lennymadethat/persistent-memory)** | Searchable vault (MCP + pgvector + Markdown mirror) |
+
+Ship the machine; keep your private diary out of git.
 
 ## How it fits together
 | Piece | What it is | Where it runs |

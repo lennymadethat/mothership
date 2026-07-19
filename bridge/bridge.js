@@ -239,13 +239,26 @@ const queues = {}; // key -> [{prompt, model}]
 /* ---- context tracking + seamless rollover ----
    Every run's result carries token usage. When a session crosses
    ROLLOVER_PCT we auto-run the wrap-it-up close-out in the OLD context
-   (vault save + continuation brief), then the next user message silently
-   starts a FRESH claude session primed with the VERBATIM recent transcript
-   (the brief rides along only as orientation for older context). The Mothership
-   transcript is ours (per-key JSONL), so the chat scrolls seamlessly
-   across parts — s.part counts the stitched claude sessions (the ticks). */
+   (vault save + PERSISTENT STATE ledger + continuation brief), then the next
+   user message silently starts a FRESH claude session primed with:
+     1) the lossless PERSISTENT STATE (plans/todos/decisions/paths/pointers/dead-ends)
+     2) a short orientation brief
+     3) the VERBATIM recent transcript tail
+     4) a RECALL pointer so anything older can be pulled back exactly
+   The Mothership transcript is ours (per-key JSONL), so the chat scrolls
+   seamlessly across parts — s.part counts the stitched sessions (the ticks).
+   See docs/long-session-memory.md for the design. */
 
 const ROLLOVER_PCT = 92; // fire before the CLI's own ~95% auto-compact beats us to it
+
+/** True if this card has anything worth re-priming after a lost native resume id. */
+function hasPrimableHistory(key) {
+  const s = sessions[key];
+  if (!s || s.archived) return false;
+  if (s.persistentState || s.pendingBrief || s.handoff) return true;
+  if (s.part && s.part > 1) return true;
+  return readTranscript(key, 5).some((t) => t.role === 'user' || t.role === 'assistant');
+}
 
 function computeCtx(ev) {
   const u = ev.usage;
@@ -280,22 +293,41 @@ function startRollover(key) {
   const nextPart = (s.part || 1) + 1;
   send({ type: 'claude.event', key, ev: { kind: 'rollover.start', part: nextPart } });
   const wrapPrompt =
-    `[AUTOMATIC CONTEXT ROLLOVER — this conversation is at ~${s.ctx?.pct ?? ROLLOVER_PCT}% of its context window. Do BOTH steps now:]\n`
-    + `1. Wrap it up: run the full close-out per the global CLAUDE.md rules (update the vault project page, log entry, chat summary).\n`
-    + `2. Then output the continuation brief for the successor session between <brief> and </brief> tags: the project, repo/paths, the exact current task and its state, decisions made, in-flight work, next steps, and gotchas. `
-    + `Everything the next session needs to continue mid-stride. No greetings, nothing outside the tags after the brief.`;
+    `[AUTOMATIC CONTEXT ROLLOVER — this conversation is at ~${s.ctx?.pct ?? ROLLOVER_PCT}% of its context window. Do ALL THREE steps now:]\n`
+    + `1. Wrap it up: run the full close-out per your project rules (project page, log entry, chat summary — whatever your workflow uses).\n`
+    + `2. Output the PERSISTENT STATE between <state> and </state> tags — a compact LOSSLESS ledger that survives EVERY future rollover, so nothing important can silently drop. Carry the prior persistent state forward and UPDATE it; never remove an item unless it's actually resolved. Headings: PLANS (named, with current step), OPEN TODOS, DECISIONS (dated), KEY FILES/PATHS, POINTERS (where a live value lives — e.g. "token: read from .env / the worker" — NEVER paste the value; a copied secret goes stale and becomes a confidently-wrong answer), DEAD ENDS (what was tried + why abandoned, so it isn't retried). Stamp volatile facts "as of part ${nextPart - 1}"; a newer fact overrides an older one.\n`
+    + `3. Output the continuation brief between <brief> and </brief> tags: the project, repo/paths, the exact current task and its state, decisions made, in-flight work, next steps, and gotchas. `
+    + `Everything the next session needs to continue mid-stride. No greetings, nothing outside the tags.`;
+  // If native resume is gone, prime the wrap itself from persistentState +
+  // transcript so a multi-part chat never rolls over into an empty brain.
+  let wrapFinal = wrapPrompt;
+  let wrapResume = s.claudeSessionId;
+  if (!wrapResume && hasPrimableHistory(key)) {
+    const tail = buildRolloverTranscript(key);
+    wrapFinal =
+      (s.persistentState ? `[PERSISTENT STATE — current truth for this wrap:]\n${s.persistentState}\n\n` : '')
+      + (tail ? `[VERBATIM RECENT TRANSCRIPT:]\n${tail}\n[End transcript.]\n\n` : '')
+      + wrapPrompt;
+  }
   try {
     claude.run({
-      key, prompt: wrapPrompt, cwd: s.repo, model: s.model,
-      resumeSessionId: s.claudeSessionId,
+      key, prompt: wrapFinal, cwd: s.repo, model: s.model,
+      resumeSessionId: wrapResume,
       onEvent: (ev) => {
         if (ev.kind !== 'done') return; // wrap runs silently — no UI streaming
         s.rolling = false;
         const text = ev.text || '';
+        // Persistent State — lossless ledger, pinned on every future re-prime.
+        // Kept on the session across ALL parts; only replaced when the wrap
+        // emits a fresh one (a failed/state-less wrap preserves the last good one).
+        const ms = text.match(/<state>([\s\S]*?)<\/state>/);
+        const st = ms && ms[1].trim().slice(0, 14_000);
+        if (st) s.persistentState = st;
         const m = text.match(/<brief>([\s\S]*?)<\/brief>/);
         s.pendingBrief = (m ? m[1] : text).trim().slice(0, 24_000) || null;
         s.part = nextPart;
         s.claudeSessionId = null; // next run starts a fresh claude session
+        s.handoff = true; // force re-prime of the next user turn with state + tail
         s.ctx = null;
         saveSessions();
         appendTranscript(key, { role: 'rollover', part: s.part, ok: ev.ok, ts: Date.now() });
@@ -303,7 +335,7 @@ function startRollover(key) {
         send({ type: 'sessions', sessions: sessionList() });
         send({
           type: 'notify', title: `🧠 ${s.name}: rolled into part ${s.part}`,
-          body: 'Context archived to the vault — keep talking, the chat continues seamlessly.',
+          body: 'Context archived — keep talking, the chat continues seamlessly.',
           tag: `roll-${key}`,
         });
         drainQueue(key); // anything typed during the wrap runs now, on the fresh context
@@ -321,23 +353,31 @@ function startRun(key, prompt, { model, fresh } = {}) {
   const startedAt = Date.now();
   let finalPrompt = prompt;
   let resume = fresh ? null : s.claudeSessionId;
-  if (fresh) s.pendingBrief = null;
-  if (s.pendingBrief) {
-    // Seamless continuation: fresh claude session, primed with the VERBATIM
-    // recent transcript (not just a summary) so no detail is lost across parts.
-    // The <brief> rides along only as an orientation header for context older
-    // than the verbatim tail budget.
+  if (fresh) { s.pendingBrief = null; s.persistentState = null; s.handoff = false; }
+  // Re-prime rule: if there's no native resume id but the card has history
+  // (multi-part chat, persistentState, transcript), always inject state +
+  // verbatim tail + recall pointer. handoff / pendingBrief still force
+  // re-prime even WITH a resume id (model switch / rollover).
+  const needsReprime = !fresh && (
+    s.pendingBrief || s.handoff
+    || (!resume && hasPrimableHistory(key))
+  );
+  if (needsReprime) {
     const tail = buildRolloverTranscript(key);
+    const recallCmd = `node "${path.join(ROOT, 'recall.mjs')}" --key "${key}" --query "<keywords>"`;
     finalPrompt =
       `[SEAMLESS CONTINUATION — part ${(s.part || 1)} of one ongoing conversation. `
-      + `The user sees a single continuous chat: do NOT greet, recap, or mention any rollover.]\n`
+      + `The user sees a single continuous chat: do NOT greet, recap, or mention any rollover${s.handoff ? ' or model switch' : ''}.]\n`
+      + (s.persistentState ? `[PERSISTENT STATE — a lossless ledger carried across ALL parts; treat as current truth. Any value here is a POINTER: read the live copy at its source, never trust a pasted secret/token as current.]\n${s.persistentState}\n\n` : '')
       + (s.pendingBrief ? `[Summary of earlier context, orientation only:]\n${s.pendingBrief}\n\n` : '')
       + (tail ? `[VERBATIM RECENT TRANSCRIPT — the actual conversation so far; continue from where it leaves off:]\n${tail}\n[End transcript.]\n\n` : '')
+      + `[RECALL — every earlier turn of this whole conversation is archived on disk. If you need an exact detail from BEFORE the transcript above, don't guess or say you forgot — run: ${recallCmd} (add --any to widen, --part N to scope). It returns the past turns verbatim with citations.]\n\n`
       + `[The user's newest message follows — just continue.]\n\n${prompt}`;
     resume = null;
-    s.pendingBrief = null;
-    saveSessions();
   }
+  s.pendingBrief = null;
+  s.handoff = false;
+  saveSessions();
   const runId = claude.run({
     key,
     prompt: finalPrompt,
