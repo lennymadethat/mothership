@@ -68,5 +68,7 @@ See `bridge/config.example.json` for the bridge config shape and `worker/wrangle
 ## License
 MIT — see [LICENSE](LICENSE). Use it, fork it, ship your own fleet.
 
+
 ---
-<sub>Built by Lenny with Claude. One of the tools behind the Carpathia agentic-OS stack.</sub>
+
+<sub>Built by [lennymadethat](https://lennymadethat.com).</sub>
