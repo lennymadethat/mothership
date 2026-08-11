@@ -57,7 +57,7 @@ Expand-Archive ms-bridge.zip -DestinationPath mothership-bridge -Force
 cd mothership-bridge
 .\install.ps1 -HubUrl https://mothership-hub.YOUR_SUBDOMAIN.workers.dev -Token <HUB_TOKEN> -Machine my-desktop
 ```
-This installs deps, writes `config.json`, registers a `MothershipBridge` scheduled task (auto-start at logon, auto-restart on crash), and starts it. The machine shows up in the PWA within seconds.
+This installs deps, writes `config.json`, registers a `MothershipBridge` scheduled task (auto-start at boot **and** logon, auto-restart on crash), and starts it. The machine shows up in the PWA within seconds. If a machine ever fails to come back after a reboot — or the PWA shows no sessions — see [`docs/bridge-autostart.md`](docs/bridge-autostart.md).
 
 ### 3. Open the PWA
 Visit your hub URL, enter your `HUB_TOKEN`, install to home screen. Done.
