@@ -20,6 +20,14 @@ $cfg = @{ hubUrl = $HubUrl.TrimEnd('/'); machine = $Machine.ToLower(); token = $
 [System.IO.File]::WriteAllText((Join-Path $dir 'config.json'), $cfg, (New-Object System.Text.UTF8Encoding $false))
 New-Item -ItemType Directory -Force (Join-Path $dir 'data') | Out-Null
 
+# Pin node's absolute path for run-hidden.vbs. The boot-time task cannot see a
+# per-user PATH (nvm/fnm/scoop/winget installs), so resolving "node" here — where
+# we still have the interactive environment — is what keeps AtStartup working.
+$node = (Get-Command node -ErrorAction SilentlyContinue).Source
+if (-not $node) { throw "node.exe not on PATH — install Node 20+ and re-run." }
+[System.IO.File]::WriteAllText((Join-Path $dir 'data\node-path.txt'), $node, (New-Object System.Text.UTF8Encoding $false))
+Write-Host "      node: $node" -ForegroundColor DarkGray
+
 if (-not $NoTask) {
   Write-Host "[3/4] registering scheduled task (auto-start at boot AND logon)..." -ForegroundColor Cyan
   $vbs = Join-Path $dir 'run-hidden.vbs'
@@ -39,5 +47,14 @@ if (-not $NoTask) {
 
 Start-Sleep -Seconds 3
 $log = Join-Path $dir 'data\bridge.log'
-if (Test-Path $log) { Write-Host "--- bridge.log tail ---"; Get-Content $log -Tail 5 }
+if (Test-Path $log) {
+  Write-Host "--- bridge.log tail ---"
+  $tail = Get-Content $log -Tail 5
+  $tail
+  # The supervisor stays "Running" even when it can't launch anything, so the
+  # log is the only place this shows up. Don't let it pass as a clean install.
+  if ($tail -match 'not recognized|node\.exe not found') {
+    Write-Warning "The bridge could not launch node. See docs/bridge-autostart.md."
+  }
+}
 Write-Host "`nDone. Machine '$Machine' should appear online in the Mothership PWA." -ForegroundColor Green
