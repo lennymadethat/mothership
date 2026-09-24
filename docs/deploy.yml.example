@@ -1,7 +1,7 @@
 name: Deploy hub
 on:
   push:
-    branches: [dev, main]
+    branches: [main]
 jobs:
   deploy:
     runs-on: windows-latest
@@ -13,19 +13,10 @@ jobs:
       - name: Pack bridge kit
         shell: pwsh
         run: ./scripts/pack-bridge.ps1
-      - name: Deploy (dev)
-        if: github.ref == 'refs/heads/dev'
+      - name: Deploy
         shell: pwsh
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler@4 deploy
-      - name: Deploy (production)
-        if: github.ref == 'refs/heads/main'
-        shell: pwsh
-        working-directory: worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4 deploy --env production

@@ -1,7 +1,7 @@
 // Mothership Hub — Cloudflare Worker
 // Serves the PWA + relays WebSockets between browser clients and machine bridges
 // via one MachineRelay Durable Object per machine. Everything under /api/* is
-// gated by HUB_TOKEN (Authorization: Bearer or ?token=).
+// gated by HUB_TOKEN (Authorization: Bearer or ?token=). No token configured = nothing answers.
 
 const enc = new TextEncoder();
 
@@ -18,11 +18,16 @@ function extractToken(request, url) {
   return url.searchParams.get('token') || '';
 }
 
+// Fail closed. A hub with no HUB_TOKEN set answers nothing: an open relay
+// that can run shell commands on your machines is not a mode, it is a hole.
 async function authed(request, url, env) {
-  if (!env.HUB_TOKEN) return true; // open mode — no token configured; the unguessable URL is the only gate
+  if (!env.HUB_TOKEN) return false;
   const t = extractToken(request, url);
   if (!t) return false;
-  return (await sha256hex(t)) === (await sha256hex(env.HUB_TOKEN));
+  const [a, b] = await Promise.all([sha256hex(t), sha256hex(env.HUB_TOKEN)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 /* ---------------- helpers ---------------- */

@@ -2,7 +2,7 @@
 
 Mothership keeps a chat **alive across context-window rollovers**. The phone UI shows one continuous thread; under the hood the bridge stitches many agent sessions into that thread.
 
-This is **conversation continuity**, not long-term knowledge. Pair it with [persistent-memory](https://github.com/lennymadethat/persistent-memory) if you also want a vault the model can search forever.
+This is **conversation continuity**, not long-term knowledge. Pair it with [Second Brain](https://github.com/lennymadethat/second-brain) if you also want a library the model can search forever.
 
 ## The problem
 
@@ -82,7 +82,7 @@ The user never sees a “new chat.” They keep typing.
 ## What this is *not*
 
 - **Not a product brand** for “forever chat.” The product is **Mothership**. Long-session memory is a feature of the bridge.  
-- **Not your knowledge vault.** State Block holds *this conversation’s* plans and decisions. Permanent notes, methodology, and project wiki pages belong in **persistent-memory** (or your own Markdown vault mirrored through it).  
+- **Not your knowledge vault.** State Block holds *this conversation’s* plans and decisions. Permanent notes, methodology, and project wiki pages belong in **Second Brain** (or your own Markdown folder mirrored through it).  
 - **Not a place for secrets.** Pointers only.
 
 ## Files

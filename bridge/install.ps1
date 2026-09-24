@@ -1,10 +1,10 @@
 # Mothership Bridge installer — run from the bridge folder.
 #   .\install.ps1 -HubUrl https://mothership-hub.YOUR_SUBDOMAIN.workers.dev -Machine my-desktop
-# -Token is optional (hub runs open unless a token is configured).
+# -Token is required: the hub answers nothing without HUB_TOKEN, so the bridge needs the same value.
 param(
   [Parameter(Mandatory=$true)][string]$HubUrl,
   [Parameter(Mandatory=$true)][string]$Machine,
-  [string]$Token = '',
+  [Parameter(Mandatory=$true)][string]$Token,
   [switch]$NoTask
 )
 $ErrorActionPreference = 'Stop'

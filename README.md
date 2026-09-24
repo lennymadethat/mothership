@@ -18,12 +18,12 @@ The bridge on each machine dials **out** to the hub; your browser connects to th
 - **Push notifications** — your phone buzzes when a run finishes or a machine acts up (VAPID web push, payload-free by design).
 - **PWA** — install to home screen, offline shell, dark, fast.
 
-### Memory layers (how this pairs with persistent-memory)
+### Memory layers (how this pairs with Second Brain)
 
 | Layer | Product | Job |
 |---|---|---|
 | Conversation continuity | **Mothership** (this repo) | State Block + verbatim tail + `recall.mjs` across rollovers |
-| Long-term knowledge | **[persistent-memory](https://github.com/lennymadethat/persistent-memory)** | Searchable vault (MCP + pgvector + Markdown mirror) |
+| Long-term knowledge | **[Second Brain](https://github.com/lennymadethat/second-brain)** | Persistent memory for any agent: rulebook + MCP memory server + hosted vector library |
 
 Ship the machine; keep your private diary out of git.
 
@@ -42,7 +42,7 @@ Ship the machine; keep your private diary out of git.
 cd worker
 # edit wrangler.jsonc: set your account id, KV namespace ids, and route/domain
 npx wrangler@4 kv namespace create HUB_KV      # paste the id into wrangler.jsonc
-npx wrangler@4 secret put HUB_TOKEN            # a long random string — your master key
+npx wrangler@4 secret put HUB_TOKEN            # required — a long random string; the hub answers nothing without it
 npx wrangler@4 secret put VAPID_PRIVATE_JWK    # optional: for push notifications
 npx wrangler@4 secret put VAPID_PUBLIC_KEY     # optional
 npx wrangler@4 deploy
@@ -66,14 +66,19 @@ Visit your hub URL, enter your `HUB_TOKEN`, install to home screen. Done.
 
 Mothership can run terminal commands and shut down your computers, so treat `HUB_TOKEN` like the keys to your house.
 
-- **Token mode is the default and the recommended way to run.** Set `HUB_TOKEN` on the worker; every bridge and every browser must present it. Anyone without the token gets nothing.
+- **The hub fails closed.** With no `HUB_TOKEN` set, the worker answers nothing: no machines, no relay, no files. There is no open mode. Set the secret before the first bridge connects.
 - **Use a long, random token** (32+ bytes). Rotate it by changing the worker secret and re-running the bridge installer with the new value.
-- **Open mode exists for trusted-LAN use only.** If you run without a token, the only thing protecting your machines is the secrecy of your hub URL — that is *not* real security. Don't run open mode on a public hub URL.
+- **One worker, one URL.** Do not keep a second "dev" copy of the hub deployed on the same account with the same bindings; a forgotten copy without a token is an open door to every machine. If you need a staging hub, give it its own KV namespace and its own token.
 - Nothing here needs inbound ports; keep it that way. The bridge is outbound-only.
 - Push notifications are payload-free — no session content ever leaves in a push.
 
 ## Configuration
-See `bridge/config.example.json` for the bridge config shape and `worker/wrangler.jsonc` for the hub bindings (KV namespace, Durable Object, account id, route). Replace every `YOUR_*` placeholder with your own values.
+See `bridge/config.example.json` for the bridge config shape and `worker/wrangler.jsonc` for the hub bindings (KV namespace, Durable Object, account id, optional custom domain). Replace every `YOUR_*` placeholder with your own values. [`KIT.md`](KIT.md) is a paste-prompt that walks an agent through the whole setup; [`AGENTS.md`](AGENTS.md) tells an agent running inside a Mothership session what it is standing on.
+
+## Siblings
+- [Second Brain](https://github.com/lennymadethat/second-brain): the long-term memory the chat can search.
+- [Ingester](https://github.com/lennymadethat/ingester): drop a file, get a memory.
+- [Harvester](https://github.com/lennymadethat/harvester): paste a link, get the lessons.
 
 ## License
 MIT — see [LICENSE](LICENSE). Use it, fork it, ship your own fleet.
